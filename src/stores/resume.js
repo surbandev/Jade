@@ -4,6 +4,7 @@ import { ref, reactive } from 'vue'
 export const useResumeStore = defineStore('resume', () => {
   const name = ref('Jade Urban')
   const title = ref('Registered Nurse')
+  const profileImage = ref('/JadeResume.png')
   const profile = ref(
     'My name is Jade Urban, and I hold both an Associate of Science in Nursing (ASN) and a Bachelor of Science in Nursing (BSN). I began my career in the medical field as a dialysis technician and progressed to the role of dialysis nurse, dedicating over ten years of service to this specialty. I am passionate about continuous learning, which I believe is essential for personal and professional growth. I actively seek opportunities to enhance my skills in communication, critical thinking, organization, efficiency, and adaptability. To avoid stagnation in my development, I remain open to new challenges and experiences.'
   )
@@ -71,9 +72,19 @@ export const useResumeStore = defineStore('resume', () => {
     'Remote Area Medical Expedition#900- 2018',
   ])
 
+  // Primary colors per layout (user can change in edit panel). Keys: layout id.
+  const layoutColors = reactive({
+    sidebar: { primary: '#1e2442', secondary: '#667eea' },
+    classic: { primary: '#3d3d3d', secondary: '#1a1a1a' },
+    angel: { primary: '#0d9488', secondary: '#0d9488' },
+    pro: { primary: '#3c3c3c', secondary: '#555555' },
+    aqua: { primary: '#7dc4c4', secondary: '#5baaaa' },
+  })
+
   return {
     name,
     title,
+    profileImage,
     profile,
     phone,
     email,
@@ -82,5 +93,6 @@ export const useResumeStore = defineStore('resume', () => {
     skills,
     experience,
     awards,
+    layoutColors,
   }
 })

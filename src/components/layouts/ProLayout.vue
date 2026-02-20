@@ -6,15 +6,16 @@ const store = useResumeStore()
 <template>
   <div
     class="resume-pro"
-    style="width: 216mm; min-height: 306mm; font-family: 'Calibri', 'Trebuchet MS', Arial, sans-serif; display: flex; flex-direction: column; background: #fff;"
+    style="width: 216mm; min-height: 306mm; font-family: 'Calibri', 'Trebuchet MS', Arial, sans-serif; display: flex; flex-direction: column; background: #fff; --pro-primary: var(--pro-primary-override, #3c3c3c); --pro-secondary: var(--pro-secondary-override, #555);"
+    :style="{ '--pro-primary-override': store.layoutColors?.pro?.primary, '--pro-secondary-override': store.layoutColors?.pro?.secondary }"
   >
     <!-- Thin accent bar -->
-    <div style="height: 5px; background: #555; flex-shrink: 0;" />
+    <div class="pro-accent-bar" style="height: 5px; flex-shrink: 0;" />
 
     <!-- Dark header -->
-    <header style="display: flex; align-items: center; gap: 28px; background: #3c3c3c; padding: 28px 36px; flex-shrink: 0;">
+    <header class="pro-header" style="display: flex; align-items: center; gap: 28px; padding: 28px 36px; flex-shrink: 0;">
       <div style="width: 110px; height: 110px; flex-shrink: 0; overflow: hidden; border-radius: 50%; border: 3px solid rgba(255,255,255,0.3);">
-        <img src="/JadeResume.png" alt="Profile" style="width: 100%; height: 100%; object-fit: cover;" @error="($event.target).style.display = 'none'" />
+        <img :src="store.profileImage" alt="Profile" style="width: 100%; height: 100%; object-fit: cover;" @error="($event.target).style.display = 'none'" />
       </div>
       <div style="flex: 1;">
         <h1 style="font-size: 34px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; margin: 0; line-height: 1.1;">{{ store.name }}</h1>
@@ -65,7 +66,7 @@ const store = useResumeStore()
           <h2 class="pro-side-heading">Awards &amp; Volunteer</h2>
           <ul style="list-style: none; padding: 0; margin: 0;">
             <li v-for="(item, i) in store.awards" :key="i" style="display: flex; align-items: flex-start; gap: 6px; margin-bottom: 6px;">
-              <span style="width: 5px; height: 5px; border-radius: 50%; background: #555; flex-shrink: 0; margin-top: 5px;" />
+              <span class="pro-bullet" style="width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; margin-top: 5px;" />
               <span class="pro-side-val">{{ item }}</span>
             </li>
           </ul>
@@ -96,6 +97,15 @@ const store = useResumeStore()
 </template>
 
 <style scoped>
+.pro-accent-bar {
+  background: var(--pro-secondary, #555);
+}
+.pro-header {
+  background: var(--pro-primary, #3c3c3c);
+}
+.pro-bullet {
+  background: var(--pro-secondary, #555);
+}
 .pro-side-heading {
   font-size: 14px;
   font-weight: 700;
