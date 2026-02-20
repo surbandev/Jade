@@ -1,0 +1,68 @@
+import { defineStore } from 'pinia'
+import { ref, reactive } from 'vue'
+
+export const useResumeStore = defineStore('resume', () => {
+  const name = ref('Jade Urban')
+  const title = ref('Registered Nurse')
+  const profile = ref(
+    'My name is Jade Urban, and I hold both an Associate of Science in Nursing (ASN) and a Bachelor of Science in Nursing (BSN). I began my career in the medical field as a dialysis technician and progressed to the role of dialysis nurse, dedicating over ten years of service to this specialty. I am passionate about continuous learning, which I believe is essential for personal and professional growth. I actively seek opportunities to enhance my skills in communication, critical thinking, organization, efficiency, and adaptability. To avoid stagnation in my development, I remain open to new challenges and experiences.'
+  )
+  const phone = ref('865-333-0444')
+  const email = ref('Jadeb333@gmail.com')
+  const referenceNote = ref('*Reference list upon request')
+
+  const education = reactive([
+    {
+      school: 'University of Tennessee',
+      dates: 'August 2018 – July 2019',
+      description:
+        'Obtained my Bachelor of Science in nursing, graduating with honors.',
+    },
+    {
+      school: 'Pellissippi State Community College',
+      dates: 'January 2015 – May 2018',
+      description:
+        "I earned my Associate in Applied Science in Nursing while consistently maintaining a position on the Dean's List. Additionally, I received a Nursing Merit Award during my first year in the nursing program.",
+    },
+  ])
+
+  const experience = reactive([
+    {
+      role: 'Fresenius Medical Care Acutes- Registered Nurse',
+      dates: 'September 2020- Current',
+      description:
+        'In my role within the acute hospital setting, I am responsible for initiating, monitoring, and terminating hemodialysis treatments for patients. Additionally, I coordinate patient care in collaboration with interdisciplinary teams throughout the hospital. During my tenure, I have also developed competencies in peritoneal dialysis and plasmapheresis.',
+    },
+    {
+      role: 'DaVita- Registered Nurse',
+      dates: 'August 2018-September 2020',
+      description:
+        'I initiated, monitored, and terminated hemodialysis treatments for patients requiring dialysis. My responsibilities included conducting thorough assessments, administering medications, and monitoring for complications during treatment. I also oversaw the review of monthly lab results and communicated critical values to the nephrologist. Additionally, I directed patient care technicians, ensuring the safety of up to twelve patients simultaneously, and engaged in clinical decision-making and anemia management.',
+    },
+    {
+      role: 'DaVita- Certified Dialysis Technician',
+      dates: 'May 2014- August 2018',
+      description:
+        'I served as a patient care technician for individuals undergoing dialysis treatments. In this role, I was responsible for monitoring water systems and ensuring proper machine setup for patient treatments. Additionally, I gained the ability to precept and successfully trained new technician hires.',
+    },
+  ])
+
+  const awards = reactive([
+    'Award of Merit- Pellissippi State',
+    'Nursing Program 2017',
+    'Meals on Wheels- 2017-2018',
+    'Remote Area Medical Expedition#900- 2018',
+  ])
+
+  return {
+    name,
+    title,
+    profile,
+    phone,
+    email,
+    referenceNote,
+    education,
+    experience,
+    awards,
+  }
+})
