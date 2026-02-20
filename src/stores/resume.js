@@ -26,22 +26,39 @@ export const useResumeStore = defineStore('resume', () => {
     },
   ])
 
+  const skills = reactive([
+    'Hemodialysis & Peritoneal Dialysis',
+    'Plasmapheresis',
+    'Patient Assessment',
+    'Medication Administration',
+    'Interdisciplinary Collaboration',
+    'Critical Thinking',
+    'Patient Education',
+    'Anemia Management',
+  ])
+
   const experience = reactive([
     {
-      role: 'Fresenius Medical Care Acutes- Registered Nurse',
-      dates: 'September 2020- Current',
+      role: 'Registered Nurse',
+      company: 'Fresenius Medical Care Acutes',
+      location: 'Knoxville, TN',
+      dates: 'September 2020 – Current',
       description:
         'In my role within the acute hospital setting, I am responsible for initiating, monitoring, and terminating hemodialysis treatments for patients. Additionally, I coordinate patient care in collaboration with interdisciplinary teams throughout the hospital. During my tenure, I have also developed competencies in peritoneal dialysis and plasmapheresis.',
     },
     {
-      role: 'DaVita- Registered Nurse',
-      dates: 'August 2018-September 2020',
+      role: 'Registered Nurse',
+      company: 'DaVita',
+      location: 'Knoxville, TN',
+      dates: 'August 2018 – September 2020',
       description:
         'I initiated, monitored, and terminated hemodialysis treatments for patients requiring dialysis. My responsibilities included conducting thorough assessments, administering medications, and monitoring for complications during treatment. I also oversaw the review of monthly lab results and communicated critical values to the nephrologist. Additionally, I directed patient care technicians, ensuring the safety of up to twelve patients simultaneously, and engaged in clinical decision-making and anemia management.',
     },
     {
-      role: 'DaVita- Certified Dialysis Technician',
-      dates: 'May 2014- August 2018',
+      role: 'Certified Dialysis Technician',
+      company: 'DaVita',
+      location: 'Knoxville, TN',
+      dates: 'May 2014 – August 2018',
       description:
         'I served as a patient care technician for individuals undergoing dialysis treatments. In this role, I was responsible for monitoring water systems and ensuring proper machine setup for patient treatments. Additionally, I gained the ability to precept and successfully trained new technician hires.',
     },
@@ -62,6 +79,7 @@ export const useResumeStore = defineStore('resume', () => {
     email,
     referenceNote,
     education,
+    skills,
     experience,
     awards,
   }
