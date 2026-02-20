@@ -8,7 +8,8 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "server"],
       "console": "integratedTerminal",
-      "cwd": "${workspaceFolder}"
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "npm install"
     },
     {
       "name": "Frontend",
@@ -19,20 +20,5 @@
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}"
     },
-    {
-      "name": "npm run dev",
-      "type": "node",
-      "request": "launch",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "console": "integratedTerminal",
-      "cwd": "${workspaceFolder}"
-    }
   ],
-  "compounds": [
-    {
-      "name": "Run full app",
-      "configurations": ["Server", "Frontend"]
-    }
-  ]
 }

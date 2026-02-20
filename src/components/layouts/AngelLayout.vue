@@ -1,12 +1,35 @@
 <script setup>
+import { computed } from 'vue'
 import { useResumeStore } from '../../stores/resume'
+
+const props = defineProps({
+  page: { type: Number, default: 1 },
+  totalPages: { type: Number, default: 1 },
+})
+
 const store = useResumeStore()
+
+const EDUCATION_PER_PAGE_1 = 2
+const EXPERIENCE_PER_PAGE_1 = 3
+
+const displayedEducation = computed(() => {
+  if (props.totalPages <= 1) return store.education
+  if (props.page === 1) return store.education.slice(0, EDUCATION_PER_PAGE_1)
+  return store.education.slice(EDUCATION_PER_PAGE_1)
+})
+
+const displayedExperience = computed(() => {
+  if (props.totalPages <= 1) return store.experience
+  if (props.page === 1) return store.experience.slice(0, EXPERIENCE_PER_PAGE_1)
+  return store.experience.slice(EXPERIENCE_PER_PAGE_1)
+})
 </script>
 
 <template>
+  <!-- Static page: 210mm × 297mm (A4). No transform; matches printed/PDF size. -->
   <div
-    class="resume-angel flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-angel-bg angel-theme"
-    style="transform: scale(0.97); transform-origin: top left; width: 216mm; min-height: 306mm;"
+    class="resume-angel angel-theme flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-angel-bg"
+    style="width: 210mm; height: 297mm; min-height: 297mm;"
     :style="{ '--angel-primary': store.layoutColors?.angel?.primary, '--angel-secondary': store.layoutColors?.angel?.secondary }"
   >
     <!-- Hero header -->
@@ -28,13 +51,13 @@ const store = useResumeStore()
       <aside class="angel-sidebar w-[200px] shrink-0 border-r border-gray-200 bg-white/80 px-5 py-5 backdrop-blur-sm">
         <section class="mb-5">
           <h2 class="angel-heading">Profile</h2>
-          <p class="whitespace-pre-wrap text-left text-xs leading-relaxed text-gray-700">{{ store.profile }}</p>
+          <p class="whitespace-pre-wrap text-left text-xs leading-relaxed text-gray-700" style="word-spacing: normal;">{{ store.profile }}</p>
         </section>
       </aside>
       <main class="angel-main min-w-0 flex-1 overflow-hidden px-6 py-5">
         <section class="angel-section">
           <h2 class="angel-heading-bar">Work Experience</h2>
-          <article v-for="(job, i) in store.experience" :key="i" class="angel-entry">
+          <article v-for="(job, i) in displayedExperience" :key="i" class="angel-entry">
             <h3 class="text-sm font-semibold text-gray-900">{{ job.role }}</h3>
             <p class="text-xs angel-accent">{{ job.dates }}</p>
             <p class="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-gray-700">{{ job.description }}</p>
@@ -42,7 +65,7 @@ const store = useResumeStore()
         </section>
         <section class="angel-section">
           <h2 class="angel-heading-bar">Education</h2>
-          <article v-for="(edu, i) in store.education" :key="i" class="angel-entry">
+          <article v-for="(edu, i) in displayedEducation" :key="i" class="angel-entry">
             <h3 class="text-sm font-semibold text-gray-900">{{ edu.school }}</h3>
             <p class="text-xs angel-accent">{{ edu.dates }}</p>
             <p class="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-gray-700">{{ edu.description }}</p>

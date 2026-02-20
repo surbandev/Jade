@@ -1,12 +1,35 @@
 <script setup>
+import { computed } from 'vue'
 import { useResumeStore } from '../../stores/resume'
+
+const props = defineProps({
+  page: { type: Number, default: 1 },
+  totalPages: { type: Number, default: 1 },
+})
+
 const store = useResumeStore()
+
+const EDUCATION_PER_PAGE_1 = 2
+const EXPERIENCE_PER_PAGE_1 = 3
+
+const displayedEducation = computed(() => {
+  if (props.totalPages <= 1) return store.education
+  if (props.page === 1) return store.education.slice(0, EDUCATION_PER_PAGE_1)
+  return store.education.slice(EDUCATION_PER_PAGE_1)
+})
+
+const displayedExperience = computed(() => {
+  if (props.totalPages <= 1) return store.experience
+  if (props.page === 1) return store.experience.slice(0, EXPERIENCE_PER_PAGE_1)
+  return store.experience.slice(EXPERIENCE_PER_PAGE_1)
+})
 </script>
 
 <template>
+  <!-- Static page: 210mm × 297mm (A4). Matches printed/PDF size. -->
   <div
     class="classic-layout flex min-h-0 min-w-0 flex-1 overflow-hidden bg-white"
-    style="width: 216mm; min-height: 306mm; font-family: system-ui, -apple-system, sans-serif; --classic-primary: var(--classic-primary-override, #3d3d3d); --classic-secondary: var(--classic-secondary-override, #1a1a1a);"
+    style="width: 210mm; height: 297mm; min-height: 297mm; font-family: system-ui, -apple-system, sans-serif; --classic-primary: var(--classic-primary-override, #3d3d3d); --classic-secondary: var(--classic-secondary-override, #1a1a1a);"
     :style="{ '--classic-primary-override': store.layoutColors?.classic?.primary, '--classic-secondary-override': store.layoutColors?.classic?.secondary }"
   >
     <!-- Left: dark grey sidebar -->
@@ -24,7 +47,7 @@ const store = useResumeStore()
       <!-- About Me -->
       <section class="classic-side-section" style="padding: 18px 16px 14px;">
         <h2 class="classic-side-heading">About me</h2>
-        <p class="classic-side-text">{{ store.profile }}</p>
+        <p class="classic-side-text" style="white-space: pre-wrap; text-align: left; word-spacing: normal;">{{ store.profile }}</p>
       </section>
 
       <!-- Reference -->
@@ -68,7 +91,7 @@ const store = useResumeStore()
       <section class="classic-section classic-section-tight">
         <h2 class="classic-main-heading">Work experience</h2>
         <div class="classic-timeline">
-          <article v-for="(job, i) in store.experience" :key="i" class="classic-timeline-item">
+          <article v-for="(job, i) in displayedExperience" :key="i" class="classic-timeline-item">
             <div class="classic-timeline-dot" />
             <div class="classic-timeline-content">
               <p class="classic-company">{{ job.company }}</p>
@@ -86,7 +109,7 @@ const store = useResumeStore()
       <section class="classic-section classic-section-tight">
         <h2 class="classic-main-heading">Education</h2>
         <div class="classic-timeline">
-          <article v-for="(edu, i) in store.education" :key="i" class="classic-timeline-item">
+          <article v-for="(edu, i) in displayedEducation" :key="i" class="classic-timeline-item">
             <div class="classic-timeline-dot" />
             <div class="classic-timeline-content">
               <p class="classic-company">{{ edu.school }}</p>

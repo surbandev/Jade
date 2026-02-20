@@ -2,13 +2,17 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "npm install",
+      "type": "shell",
+      "command": "npm install",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
       "label": "start dev server",
       "type": "shell",
       "command": "npm run dev",
-      "options": {
-        "cwd": "${workspaceFolder}",
-        "env": {}
-      },
+      "options": { "cwd": "${workspaceFolder}", "env": {} },
       "isBackground": true,
       "problemMatcher": {
         "owner": "vite",
@@ -19,10 +23,7 @@
           "endsPattern": "Local:.*http"
         }
       },
-      "presentation": {
-        "reveal": "always",
-        "panel": "new"
-      }
+      "presentation": { "reveal": "always", "panel": "new" }
     }
   ]
 }

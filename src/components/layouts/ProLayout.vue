@@ -1,12 +1,35 @@
 <script setup>
+import { computed } from 'vue'
 import { useResumeStore } from '../../stores/resume'
+
+const props = defineProps({
+  page: { type: Number, default: 1 },
+  totalPages: { type: Number, default: 1 },
+})
+
 const store = useResumeStore()
+
+const EDUCATION_PER_PAGE_1 = 2
+const EXPERIENCE_PER_PAGE_1 = 3
+
+const displayedEducation = computed(() => {
+  if (props.totalPages <= 1) return store.education
+  if (props.page === 1) return store.education.slice(0, EDUCATION_PER_PAGE_1)
+  return store.education.slice(EDUCATION_PER_PAGE_1)
+})
+
+const displayedExperience = computed(() => {
+  if (props.totalPages <= 1) return store.experience
+  if (props.page === 1) return store.experience.slice(0, EXPERIENCE_PER_PAGE_1)
+  return store.experience.slice(EXPERIENCE_PER_PAGE_1)
+})
 </script>
 
 <template>
+  <!-- Static page: 210mm × 297mm (A4). Matches printed/PDF size. -->
   <div
     class="resume-pro"
-    style="width: 216mm; min-height: 306mm; font-family: 'Calibri', 'Trebuchet MS', Arial, sans-serif; display: flex; flex-direction: column; background: #fff; --pro-primary: var(--pro-primary-override, #3c3c3c); --pro-secondary: var(--pro-secondary-override, #555);"
+    style="width: 210mm; height: 297mm; min-height: 297mm; font-family: 'Calibri', 'Trebuchet MS', Arial, sans-serif; display: flex; flex-direction: column; background: #fff; --pro-primary: var(--pro-primary-override, #3c3c3c); --pro-secondary: var(--pro-secondary-override, #555);"
     :style="{ '--pro-primary-override': store.layoutColors?.pro?.primary, '--pro-secondary-override': store.layoutColors?.pro?.secondary }"
   >
     <!-- Thin accent bar -->
@@ -55,7 +78,7 @@ const store = useResumeStore()
 
         <div style="margin-bottom: 18px;">
           <h2 class="pro-side-heading">Education</h2>
-          <div v-for="(edu, i) in store.education" :key="i" style="margin-bottom: 12px;">
+          <div v-for="(edu, i) in displayedEducation" :key="i" style="margin-bottom: 12px;">
             <p class="pro-side-school">{{ edu.school }}</p>
             <p class="pro-side-dates">{{ edu.dates }}</p>
             <p class="pro-side-val">{{ edu.description }}</p>
@@ -79,12 +102,12 @@ const store = useResumeStore()
 
         <div style="margin-bottom: 18px;">
           <h2 class="pro-main-heading">Profile</h2>
-          <p class="pro-body" style="white-space: pre-wrap;">{{ store.profile }}</p>
+          <p class="pro-body" style="white-space: pre-wrap; text-align: left; word-spacing: normal;">{{ store.profile }}</p>
         </div>
 
         <div>
           <h2 class="pro-main-heading">Work Experience</h2>
-          <div v-for="(job, i) in store.experience" :key="i" style="margin-bottom: 16px;">
+          <div v-for="(job, i) in displayedExperience" :key="i" style="margin-bottom: 16px;">
             <h3 class="pro-job-title">{{ job.role }}</h3>
             <p class="pro-job-dates">{{ job.dates }}</p>
             <p class="pro-body" style="white-space: pre-wrap; margin-top: 4px;">{{ job.description }}</p>

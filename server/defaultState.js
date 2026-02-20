@@ -28,19 +28,39 @@ export const JADE_URBAN_RESUME_STATE = {
   },
 }
 
-/** Blank resume state for new users – they enter and save their own data */
+// Neutral placeholder avatar (gray circle) so new users don't inherit Jade's photo
+const PLACEHOLDER_AVATAR =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle fill='%23e5e7eb' cx='50' cy='50' r='50'/%3E%3Ccircle fill='%239ca3af' cx='50' cy='42' r='18'/%3E%3Cellipse fill='%239ca3af' cx='50' cy='95' rx='35' ry='25'/%3E%3C/svg%3E"
+
+/** Dummy resume state for new users – placeholder content they can change */
 export const BLANK_RESUME_STATE = {
-  profileImage: '/JadeResume.png',
+  profileImage: PLACEHOLDER_AVATAR,
   name: '',
-  title: '',
-  profile: '',
-  phone: '',
-  email: '',
-  referenceNote: '',
-  education: [],
-  skills: [],
-  experience: [],
-  awards: [],
+  title: 'Your Job Title',
+  profile:
+    'Write a short summary of your background, key skills, and career goals. Highlight what makes you a strong candidate and what you’re looking for in your next role.',
+  phone: '(555) 123-4567',
+  email: 'you@example.com',
+  referenceNote: '*Reference list upon request',
+  education: [
+    {
+      school: 'Your School or University',
+      dates: 'Start date – End date',
+      description: 'Degree or credential. Include honors, relevant coursework, or activities.',
+    },
+  ],
+  skills: ['Skill or competency 1', 'Skill 2', 'Skill 3', 'Skill 4'],
+  experience: [
+    {
+      role: 'Your Job Title',
+      company: 'Company Name',
+      location: 'City, State',
+      dates: 'Start date – End date',
+      description:
+        'Describe your main responsibilities and achievements. Use action verbs and include metrics when possible.',
+    },
+  ],
+  awards: ['Award or recognition 1', 'Volunteer work or activity 2'],
   layoutColors: {
     sidebar: { primary: '#1e2442', secondary: '#667eea' },
     classic: { primary: '#3d3d3d', secondary: '#1a1a1a' },

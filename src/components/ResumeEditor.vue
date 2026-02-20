@@ -1,7 +1,7 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useResumeStore } from '../stores/resume'
-import { getProfiles, getResumeState, saveResumeState, addProfile } from '../lib/resumeDb'
+import { getProfiles, getResumeState, saveResumeState, addProfile, deleteProfile } from '../lib/resumeDb'
 import html2pdf from 'html2pdf.js'
 import SidebarLayout from './layouts/SidebarLayout.vue'
 import ClassicLayout from './layouts/ClassicLayout.vue'
@@ -17,18 +17,27 @@ const LAYOUTS = [
   { id: 'aqua',    label: 'Aqua',     title: 'Teal sidebar with photo, summary & work history', component: AquaLayout },
 ]
 
+// Neutral placeholder for new users (matches server BLANK_RESUME_STATE)
+const PLACEHOLDER_AVATAR =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle fill='%23e5e7eb' cx='50' cy='50' r='50'/%3E%3Ccircle fill='%239ca3af' cx='50' cy='42' r='18'/%3E%3Cellipse fill='%239ca3af' cx='50' cy='95' rx='35' ry='25'/%3E%3C/svg%3E"
+
 const resumeRef = ref(null)
 const viewerContainerRef = ref(null)
 const store = useResumeStore()
 const isExporting = ref(false)
 const currentLayoutId = ref('sidebar')
 const profileImageInputRef = ref(null)
+const profileTextareaRef = ref(null)
 const profiles = ref([])
 const currentProfileId = ref(null)
 const dbReady = ref(false)
 const userSwitcherOpen = ref(false)
 const userSwitcherRef = ref(null)
 const newUserName = ref('')
+const showSaveSuccess = ref(false)
+let saveSuccessTimeout = null
+const deleteToast = ref({ show: false, success: true, message: '' })
+let deleteToastTimeout = null
 
 function serializeStore() {
   return {
@@ -53,7 +62,7 @@ function hydrateStore(data) {
   if (data.name != null) store.name = data.name
   if (data.title != null) store.title = data.title
   if (data.profile != null) store.profile = data.profile
-  if (data.phone != null) store.phone = data.phone
+  if (data.phone != null) store.phone = formatPhone(data.phone)
   if (data.email != null) store.email = data.email
   if (data.referenceNote != null) store.referenceNote = data.referenceNote
   if (Array.isArray(data.education)) store.education.splice(0, store.education.length, ...data.education)
@@ -74,6 +83,12 @@ async function persistStore() {
   if (currentProfileId.value == null) return
   try {
     await saveResumeState(currentProfileId.value, serializeStore())
+    showSaveSuccess.value = true
+    if (saveSuccessTimeout) clearTimeout(saveSuccessTimeout)
+    saveSuccessTimeout = setTimeout(() => {
+      showSaveSuccess.value = false
+      saveSuccessTimeout = null
+    }, 2500)
   } catch (err) {
     console.error('Failed to save resume:', err)
   }
@@ -107,10 +122,64 @@ async function addUser() {
   }
 }
 
+async function deleteUser(profileId, event) {
+  event?.stopPropagation()
+  if (profiles.value.length <= 1) return
+  try {
+    await deleteProfile(profileId)
+    const wasCurrent = currentProfileId.value === profileId
+    profiles.value = await getProfiles()
+    if (wasCurrent) {
+      const next = profiles.value[0]
+      if (next) await loadProfile(next.id)
+      else currentProfileId.value = null
+    }
+    userSwitcherOpen.value = false
+    deleteToast.value = { show: true, success: true, message: 'User deleted' }
+  } catch (err) {
+    console.error('Failed to delete user:', err)
+    deleteToast.value = { show: true, success: false, message: 'Failed to delete user' }
+  }
+  if (deleteToastTimeout) clearTimeout(deleteToastTimeout)
+  deleteToastTimeout = setTimeout(() => {
+    deleteToast.value = { ...deleteToast.value, show: false }
+    deleteToastTimeout = null
+  }, 2500)
+}
+
 const currentProfileName = computed(() => {
   const p = profiles.value.find((x) => x.id === currentProfileId.value)
   return p?.name ?? '—'
 })
+
+const defaultProfileImage = computed(() =>
+  currentProfileName.value === 'Jade Urban' ? '/JadeResume.png' : PLACEHOLDER_AVATAR
+)
+
+function resizeProfileTextarea() {
+  const el = profileTextareaRef.value
+  if (!el) return
+  el.style.height = 'auto'
+  const min = 80
+  const max = 420
+  const h = Math.min(max, Math.max(min, el.scrollHeight))
+  el.style.height = `${h}px`
+}
+
+function formatPhone(value) {
+  const digits = String(value ?? '').replace(/\D/g, '').slice(0, 10)
+  if (digits.length <= 3) return digits.length ? `(${digits}` : ''
+  if (digits.length <= 6) return `(${digits.slice(0, 3)})${digits.slice(3)}`
+  return `(${digits.slice(0, 3)})${digits.slice(3, 6)}-${digits.slice(6)}`
+}
+
+function onPhoneInput(e) {
+  const formatted = formatPhone(e.target.value)
+  store.phone = formatted
+  nextTick(() => {
+    e.target.setSelectionRange(formatted.length, formatted.length)
+  })
+}
 
 function onProfileImageChange(e) {
   const file = e.target.files?.[0]
@@ -126,9 +195,19 @@ function onProfileImageChange(e) {
 
 const currentLayout = computed(() => LAYOUTS.find(l => l.id === currentLayoutId.value))
 
-// A4 in px at 96dpi: 210mm ≈ 794px, 297mm ≈ 1122px
-const A4_WIDTH_PX = 793.7
-const A4_HEIGHT_PX = 1122.5
+// Second page when there are too many education or experience items; page 1 is never changed
+const EDUCATION_PER_PAGE_1 = 2
+const EXPERIENCE_PER_PAGE_1 = 3
+const resumeTotalPages = computed(() => {
+  const needSecond = store.education.length > EDUCATION_PER_PAGE_1 || store.experience.length > EXPERIENCE_PER_PAGE_1
+  return needSecond ? 2 : 1
+})
+
+// Static page size (A4): same in preview, PDF, and print. 210mm × 297mm.
+const PAGE_WIDTH_MM = 210
+const PAGE_HEIGHT_MM = 297
+const A4_WIDTH_PX = 793.7   // PAGE_WIDTH_MM at 96dpi
+const A4_HEIGHT_PX = 1122.5 // PAGE_HEIGHT_MM at 96dpi
 // Small thumb for inline toolbar (width 44px)
 const thumbScale = 44 / A4_WIDTH_PX
 
@@ -164,9 +243,12 @@ onMounted(async () => {
     updateViewerScale()
     resizeObserver = new ResizeObserver(updateViewerScale)
     if (viewerContainerRef.value) resizeObserver.observe(viewerContainerRef.value)
+    resizeProfileTextarea()
   })
   document.addEventListener('click', onUserSwitcherClickOutside)
 })
+
+watch(() => store.profile, () => nextTick(resizeProfileTextarea))
 onUnmounted(() => {
   if (resizeObserver && viewerContainerRef.value) resizeObserver.disconnect()
   document.removeEventListener('click', onUserSwitcherClickOutside)
@@ -182,6 +264,13 @@ async function exportPdf() {
   if (!resumeRef.value || isExporting.value) return
   isExporting.value = true
   const el = resumeRef.value
+  // Remove gap so total height is exactly N×A4 (avoids extra blank PDF page)
+  const prevGap = el.style.gap
+  const prevRowGap = el.style.rowGap
+  el.style.gap = '0'
+  el.style.rowGap = '0'
+  await nextTick()
+  const fullHeight = Math.max(el.scrollHeight, resumeTotalPages.value * A4_HEIGHT_PX)
   const opt = {
     margin: 0,
     filename: 'resume.pdf',
@@ -193,11 +282,46 @@ async function exportPdf() {
       letterRendering: true,
       backgroundColor: '#ffffff',
       width: Math.round(A4_WIDTH_PX),
-      height: Math.round(A4_HEIGHT_PX),
+      height: Math.round(fullHeight),
       scrollX: 0,
       scrollY: 0,
       x: 0,
       y: 0,
+      ignoreElements: (el) => el.classList.contains('resume-sidebar-bg'),
+      onclone(clonedDoc, clonedEl) {
+        try {
+          clonedEl.style.gap = '0'
+          clonedEl.style.rowGap = '0'
+          const style = clonedDoc.createElement('style')
+          style.textContent = '* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }'
+          clonedDoc.head.appendChild(style)
+          const getVar = (el, name, fallback) => (getComputedStyle(el).getPropertyValue(name) ?? '').trim() || fallback
+          const sidebarTheme = clonedEl.querySelector('.sidebar-theme, [class*="sidebar-theme"]')
+          if (sidebarTheme) {
+            const primary = getVar(sidebarTheme, '--sidebar-primary', '#1e2442')
+            const secondary = getVar(sidebarTheme, '--sidebar-secondary', '#667eea')
+            sidebarTheme.querySelectorAll('.resume-sidebar').forEach((el) => { el.style.background = primary })
+            sidebarTheme.querySelectorAll('.resume-sidebar-photo').forEach((el) => { el.style.background = secondary })
+          }
+          clonedEl.querySelectorAll('.aqua-sidebar-bg').forEach((el) => {
+            el.style.background = getVar(el, '--aqua-primary', '#7dc4c4')
+          })
+          clonedEl.querySelectorAll('.classic-sidebar').forEach((el) => {
+            el.style.background = getVar(el, '--classic-primary', '#3d3d3d')
+          })
+          clonedEl.querySelectorAll('.angel-accent-dot').forEach((el) => {
+            el.style.background = getVar(el, '--angel-primary', '#0d9488')
+          })
+          clonedEl.querySelectorAll('.pro-accent-bar').forEach((el) => {
+            el.style.background = getVar(el, '--pro-secondary', '#555')
+          })
+          clonedEl.querySelectorAll('.pro-header').forEach((el) => {
+            el.style.background = getVar(el, '--pro-primary', '#3c3c3c')
+          })
+        } catch (e) {
+          console.warn('PDF onclone:', e)
+        }
+      },
     },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     pagebreak: { mode: 'avoid-all' },
@@ -208,14 +332,15 @@ async function exportPdf() {
     .toPdf()
     .get('pdf')
     .then((pdf) => {
-      while (pdf.getNumberOfPages() > 1) pdf.deletePage(pdf.getNumberOfPages())
       pdf.save(opt.filename)
     })
     .catch((err) => {
       console.error('PDF export failed:', err)
-      window.print()
+      alert('Could not generate PDF. Try another layout or check the browser console for details.')
     })
     .finally(() => {
+      el.style.gap = prevGap
+      el.style.rowGap = prevRowGap
       isExporting.value = false
     })
 }
@@ -223,6 +348,85 @@ async function exportPdf() {
 
 <template>
   <div class="flex h-screen flex-col overflow-hidden bg-gradient-to-br from-resume-accent to-resume-purple">
+    <!-- Save success toast (centered) -->
+    <Transition name="save-toast">
+      <div
+        v-if="showSaveSuccess"
+        class="pointer-events-none fixed inset-0 z-[100] flex items-center justify-center"
+        aria-live="polite"
+        aria-label="Saved successfully"
+      >
+        <div
+          class="save-toast-card flex flex-col items-center gap-4 rounded-2xl border border-white/20 bg-white/95 px-8 py-6 shadow-2xl backdrop-blur-xl"
+        >
+          <div
+            class="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/90 shadow-lg shadow-emerald-500/30"
+          >
+            <svg
+              class="h-8 w-8 text-white"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              viewBox="0 0 24 24"
+            >
+              <path d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <p class="text-lg font-semibold text-gray-800">Saved successfully</p>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Delete user toast (success or failure) -->
+    <Transition name="save-toast">
+      <div
+        v-if="deleteToast.show"
+        class="pointer-events-none fixed inset-0 z-[100] flex items-center justify-center"
+        aria-live="polite"
+        :aria-label="deleteToast.message"
+      >
+        <div
+          class="save-toast-card flex flex-col items-center gap-4 rounded-2xl border border-white/20 bg-white/95 px-8 py-6 shadow-2xl backdrop-blur-xl"
+        >
+          <div
+            v-if="deleteToast.success"
+            class="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/90 shadow-lg shadow-emerald-500/30"
+          >
+            <svg
+              class="h-8 w-8 text-white"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              viewBox="0 0 24 24"
+            >
+              <path d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <div
+            v-else
+            class="flex h-14 w-14 items-center justify-center rounded-full bg-red-500/90 shadow-lg shadow-red-500/30"
+          >
+            <svg
+              class="h-8 w-8 text-white"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              viewBox="0 0 24 24"
+            >
+              <path d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+          <p class="text-lg font-semibold text-gray-800">{{ deleteToast.message }}</p>
+        </div>
+      </div>
+    </Transition>
+
     <!-- Toolbar -->
     <header class="flex shrink-0 items-center gap-6 bg-black/90 px-6 py-3 shadow-lg backdrop-blur">
       <!-- User switcher (top left) -->
@@ -246,17 +450,33 @@ async function exportPdf() {
           class="absolute left-0 top-full z-50 mt-2 min-w-[180px] rounded-lg border border-white/20 bg-black/95 py-2 shadow-xl backdrop-blur"
           role="listbox"
         >
-          <button
+          <div
             v-for="p in profiles"
             :key="p.id"
-            type="button"
             role="option"
-            class="w-full px-4 py-2 text-left text-sm text-white/90 hover:bg-white/10"
+            class="flex w-full items-center justify-between gap-2 px-4 py-2 text-sm text-white/90"
             :class="currentProfileId === p.id && 'bg-white/10 font-medium'"
-            @click="switchProfile(p.id)"
           >
-            {{ p.name }}
-          </button>
+            <button
+              type="button"
+              class="min-w-0 flex-1 text-left hover:bg-white/10"
+              @click="switchProfile(p.id)"
+            >
+              {{ p.name }}
+            </button>
+            <button
+              type="button"
+              class="shrink-0 rounded p-1 text-white/60 hover:bg-red-500/20 hover:text-red-300 focus:outline-none focus:ring-2 focus:ring-red-400 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-white/60"
+              :disabled="profiles.length <= 1"
+              :title="profiles.length <= 1 ? 'Cannot delete the last user' : 'Delete user'"
+              aria-label="Delete user"
+              @click="deleteUser(p.id, $event)"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V7a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
           <div class="mt-2 border-t border-white/20 px-3 pt-2">
             <input
               v-model="newUserName"
@@ -328,18 +548,30 @@ async function exportPdf() {
         </p>
         <div
           ref="viewerContainerRef"
-          class="flex min-h-0 flex-1 justify-center overflow-hidden rounded-lg bg-black/20 pt-4"
+          class="flex min-h-0 flex-1 justify-center overflow-y-auto overflow-x-hidden rounded-lg bg-black/20 pt-4"
         >
           <div
             class="viewer-scaler shrink-0 origin-top self-start"
             :style="{ transform: `scale(${viewerScale})` }"
           >
-            <div
-              ref="resumeRef"
-              class="resume-paper h-[297mm] w-[210mm] overflow-hidden bg-white shadow-2xl"
-            >
-              <div class="resume-inner flex h-full w-full overflow-hidden">
-                <component :is="currentLayout.component" />
+            <!-- Static page size: 210mm × 297mm (A4). Preview = PDF = print. -->
+            <div ref="resumeRef" class="resume-pages flex flex-col gap-6">
+              <div
+                class="resume-paper shrink-0 overflow-hidden rounded-sm bg-white shadow-2xl"
+                :style="{ width: PAGE_WIDTH_MM + 'mm', height: PAGE_HEIGHT_MM + 'mm' }"
+              >
+                <div class="resume-inner flex h-full w-full overflow-hidden">
+                  <component :is="currentLayout.component" :page="1" :total-pages="resumeTotalPages" />
+                </div>
+              </div>
+              <div
+                v-if="resumeTotalPages > 1"
+                class="resume-paper shrink-0 overflow-hidden rounded-sm bg-white shadow-2xl"
+                :style="{ width: PAGE_WIDTH_MM + 'mm', height: PAGE_HEIGHT_MM + 'mm' }"
+              >
+                <div class="resume-inner flex h-full w-full overflow-hidden">
+                  <component :is="currentLayout.component" :page="2" :total-pages="resumeTotalPages" />
+                </div>
               </div>
             </div>
           </div>
@@ -374,10 +606,10 @@ async function exportPdf() {
                   Choose image
                 </button>
                 <button
-                  v-if="store.profileImage && store.profileImage !== '/JadeResume.png'"
+                  v-if="store.profileImage && store.profileImage !== defaultProfileImage"
                   type="button"
                   class="ml-2 rounded border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-600 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-resume-accent"
-                  @click="store.profileImage = '/JadeResume.png'; persistStore()"
+                  @click="store.profileImage = defaultProfileImage; persistStore()"
                 >
                   Reset to default
                 </button>
@@ -416,16 +648,32 @@ async function exportPdf() {
             </div>
           </fieldset>
 
-          <fieldset class="mb-8">
+          <fieldset class="mb-8 min-w-0">
             <legend class="mb-4 text-sm font-bold uppercase tracking-wide text-gray-500">Profile</legend>
             <label class="mb-2 block text-xs font-medium text-gray-600">Profile text</label>
-            <textarea v-model="store.profile" rows="8" class="field-input w-full resize-none overflow-hidden rounded border border-gray-300 px-3 py-2 text-sm" />
+            <div class="min-w-0">
+              <textarea
+                ref="profileTextareaRef"
+                v-model="store.profile"
+                rows="3"
+                class="field-input profile-textarea w-full min-w-0 resize-none rounded border border-gray-300 px-3 py-2 text-sm"
+                @input="resizeProfileTextarea"
+              />
+            </div>
           </fieldset>
 
           <fieldset class="mb-8">
             <legend class="mb-4 text-sm font-bold uppercase tracking-wide text-gray-500">Contact</legend>
             <label class="mb-2 block text-xs font-medium text-gray-600">Phone</label>
-            <input v-model="store.phone" type="text" class="field-input mb-4 w-full rounded border border-gray-300 px-3 py-2 text-sm" />
+            <input
+              :value="store.phone"
+              type="tel"
+              inputmode="numeric"
+              autocomplete="tel"
+              placeholder="(555) 123-4567"
+              class="field-input mb-4 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+              @input="onPhoneInput"
+            />
             <label class="mb-2 block text-xs font-medium text-gray-600">Email</label>
             <input v-model="store.email" type="text" class="field-input mb-4 w-full rounded border border-gray-300 px-3 py-2 text-sm" />
             <label class="mb-2 block text-xs font-medium text-gray-600">Reference note</label>
@@ -545,11 +793,52 @@ async function exportPdf() {
 .field-input {
   overflow: hidden;
 }
+.profile-textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+}
 textarea.field-input {
   overflow-y: hidden;
   scrollbar-width: none;
 }
 textarea.field-input::-webkit-scrollbar {
   display: none;
+}
+.profile-textarea::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+}
+.profile-textarea::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+/* Save success toast animation */
+.save-toast-enter-active,
+.save-toast-leave-active {
+  transition: opacity 0.3s ease;
+}
+.save-toast-enter-active .save-toast-card,
+.save-toast-leave-active .save-toast-card {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.save-toast-enter-from,
+.save-toast-leave-to {
+  opacity: 0;
+}
+.save-toast-enter-from .save-toast-card,
+.save-toast-leave-to .save-toast-card {
+  transform: scale(0.85);
+}
+.save-toast-enter-to .save-toast-card,
+.save-toast-leave-from .save-toast-card {
+  transform: scale(1);
 }
 </style>

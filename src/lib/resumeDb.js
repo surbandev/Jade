@@ -47,3 +47,28 @@ export async function addProfile(name) {
   const data = await res.json()
   return data.id
 }
+
+/**
+ * @param {number} profileId
+ */
+export async function deleteProfile(profileId) {
+  const res = await fetch(`${API}/profiles/${profileId}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(await res.text())
+}
+
+/**
+ * Ask Gemini to rewrite profile text to be more professional.
+ * @param {string} text - Current profile text
+ * @returns {Promise<string>} Rewritten text
+ */
+export async function rewriteProfileText(text) {
+  const res = await fetch(`${API}/rewrite-profile`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: text || '' }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data?.error || res.statusText || 'Failed to rewrite')
+  if (data?.text == null) throw new Error('No text in response')
+  return data.text
+}

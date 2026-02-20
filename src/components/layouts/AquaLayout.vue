@@ -1,23 +1,61 @@
 <script setup>
 import { computed } from 'vue'
 import { useResumeStore } from '../../stores/resume'
+
+const props = defineProps({
+  page: { type: Number, default: 1 },
+  totalPages: { type: Number, default: 1 },
+})
+
 const store = useResumeStore()
+
+const EDUCATION_PER_PAGE_1 = 2
+const EXPERIENCE_PER_PAGE_1 = 3
+
+const displayedEducation = computed(() => {
+  if (props.totalPages <= 1) return store.education
+  if (props.page === 1) return store.education.slice(0, EDUCATION_PER_PAGE_1)
+  return store.education.slice(EDUCATION_PER_PAGE_1)
+})
+
+const displayedExperience = computed(() => {
+  if (props.totalPages <= 1) return store.experience
+  if (props.page === 1) return store.experience.slice(0, EXPERIENCE_PER_PAGE_1)
+  return store.experience.slice(EXPERIENCE_PER_PAGE_1)
+})
 
 const firstName = computed(() => {
   const s = (store.name || '').split(' ')[0] || ''
   return s ? s[0].toUpperCase() + s.slice(1).toLowerCase() : ''
 })
 const lastName = computed(() => (store.name || '').split(' ').slice(1).join(' ') || '')
+
+// Static page: 210mm × 297mm (A4) every page. Matches printed/PDF size.
+const layoutRootStyle = computed(() => ({
+  width: '210mm',
+  height: '297mm',
+  minHeight: '297mm',
+  display: 'flex',
+  fontFamily: 'Calibri, Arial, sans-serif',
+  background: '#fff',
+  '--aqua-primary': 'var(--aqua-primary-override, #7dc4c4)',
+  '--aqua-secondary': 'var(--aqua-secondary-override, #5baaaa)',
+  '--aqua-primary-override': store.layoutColors?.aqua?.primary,
+  '--aqua-secondary-override': store.layoutColors?.aqua?.secondary,
+}))
+
+const sidebarStyle = computed(() => ({
+  width: '70mm',
+  flexShrink: 0,
+  display: 'flex',
+  flexDirection: 'column',
+}))
 </script>
 
 <template>
-  <div
-    class="aqua-layout"
-    style="width: 216mm; min-height: 306mm; display: flex; font-family: 'Calibri', Arial, sans-serif; background: #fff; --aqua-primary: var(--aqua-primary-override, #7dc4c4); --aqua-secondary: var(--aqua-secondary-override, #5baaaa);"
-    :style="{ '--aqua-primary-override': store.layoutColors?.aqua?.primary, '--aqua-secondary-override': store.layoutColors?.aqua?.secondary }"
-  >
-    <!-- Left sidebar: teal background -->
-    <aside class="aqua-sidebar-bg" style="width: 250px; flex-shrink: 0; display: flex; flex-direction: column;">
+  <div class="aqua-layout" :style="layoutRootStyle">
+    <!-- Left sidebar: teal background (page 2+: only as tall as content so it doesn't stretch and create blank page) -->
+    <aside class="aqua-sidebar-bg" :style="sidebarStyle">
 
       <!-- Name + title: script first name, bold last name, muted title, divider -->
       <div class="aqua-header" style="padding: 20px 16px 16px; text-align: center; position: relative; background: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 100%);">
@@ -45,7 +83,7 @@ const lastName = computed(() => (store.name || '').split(' ').slice(1).join(' ')
       <!-- Education -->
       <div style="padding: 14px 16px;">
         <h2 class="aqua-side-heading">Education</h2>
-        <div v-for="(edu, i) in store.education" :key="i" style="margin-bottom: 12px;">
+        <div v-for="(edu, i) in displayedEducation" :key="i" style="margin-bottom: 12px;">
           <p style="font-size: 13px; font-weight: 700; text-transform: uppercase; color: #1a1a1a; margin: 0; line-height: 1.35;">{{ edu.school }}</p>
           <p style="font-size: 12px; color: #2a2a2a; margin: 2px 0 0 0; line-height: 1.35;">{{ edu.dates }}</p>
         </div>
@@ -78,16 +116,16 @@ const lastName = computed(() => (store.name || '').split(' ').slice(1).join(' ')
     <!-- Right main content -->
     <main style="flex: 1; min-width: 0; background: #fff; padding: 24px 28px 24px 26px;">
 
-      <!-- Summary -->
-      <section style="margin-bottom: 22px;">
+      <!-- Summary (page 1 only) -->
+      <section v-if="page === 1" style="margin-bottom: 22px;">
         <h2 class="aqua-main-heading">Summary</h2>
-        <p style="font-size: 14px; color: #333; line-height: 1.6; margin: 0; white-space: pre-wrap;">{{ store.profile }}</p>
+        <p style="font-size: 14px; color: #333; line-height: 1.6; margin: 0; white-space: pre-wrap; text-align: left; word-spacing: normal;">{{ store.profile }}</p>
       </section>
 
       <!-- Work History -->
       <section>
-        <h2 class="aqua-main-heading">Work History</h2>
-        <div v-for="(job, i) in store.experience" :key="i" style="margin-bottom: 20px;">
+        <h2 class="aqua-main-heading">{{ page === 2 ? 'CONT WORK HISTORY' : 'Work History' }}</h2>
+        <div v-for="(job, i) in displayedExperience" :key="i" style="margin-bottom: 20px;">
           <div style="display: flex; justify-content: space-between; align-items: baseline;">
             <h3 style="font-size: 15px; font-weight: 700; text-transform: uppercase; color: #1a1a1a; margin: 0;">{{ job.role }}</h3>
             <span style="font-size: 13px; color: #555; flex-shrink: 0; margin-left: 8px;">{{ job.dates }}</span>
